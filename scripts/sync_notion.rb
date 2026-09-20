@@ -13,10 +13,15 @@
 #   "URL" property type, which can mangle mailto: links), Order (number)
 #
 #   Projects database:
-#     Name (title), Meta (rich text), Description (rich text, optional),
-#     Thumbnail (files, optional -> falls back to the first image block on
-#     the page), Slug (rich text, optional -> auto-generated from Name),
-#     Order (number), Published (checkbox)
+#     Name (title -- card title on the grid, and the slug source when Slug
+#     is blank), Meta (rich text -- the small client/context line above the
+#     card title), Title (rich text, optional -- the project page's own
+#     <h1>/<title>; falls back to plain Name when blank, since a mechanical
+#     "Name for a Meta" formula can't get English articles right for every
+#     project), Description (rich text, optional), Thumbnail (files,
+#     optional -> falls back to the first image block on the page), Slug
+#     (rich text, optional -> auto-generated from Name), Order (number),
+#     Published (checkbox)
 #     Page body = intro paragraphs, then any mix of Heading (section label:
 #     Task/Process/Result/...), paragraph, and image blocks, in the order
 #     they should render.
@@ -175,8 +180,8 @@ def page_title_text(page)
   rich_text_to_plain(title_prop && title_prop['title'])
 end
 
-def build_full_title(name, meta)
-  meta.to_s.strip.empty? ? name : "#{name} for a #{meta}"
+def build_full_title(name, explicit_title)
+  explicit_title.to_s.strip.empty? ? name : explicit_title
 end
 
 def slugify(text)
@@ -339,7 +344,7 @@ projects = project_rows.map do |row|
               end
 
   meta = prop_rich_text(row, 'Meta')
-  full_title = build_full_title(name, meta)
+  full_title = build_full_title(name, prop_rich_text(row, 'Title'))
 
   {
     slug: slug,

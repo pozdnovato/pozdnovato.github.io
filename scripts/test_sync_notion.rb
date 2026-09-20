@@ -39,12 +39,12 @@ end
 
 # ---- build_full_title --------------------------------------------------------
 
-check('full title combines card title and meta with "for a"', failures) do
-  build_full_title('A Character Illustration System', 'Tempo Software') ==
-    'A Character Illustration System for a Tempo Software'
+check('full title uses the explicit Title field when set', failures) do
+  build_full_title('Character Illustration System', 'Character Illustration System for Tempo Software') ==
+    'Character Illustration System for Tempo Software'
 end
 
-check('full title falls back to the plain name when meta is blank', failures) do
+check('full title falls back to the plain name when Title is blank', failures) do
   build_full_title('Industrial Site Navigation', '') == 'Industrial Site Navigation' &&
     build_full_title('Industrial Site Navigation', nil) == 'Industrial Site Navigation'
 end
