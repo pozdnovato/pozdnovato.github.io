@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Aleksei Gorokhovskii | <%= title %></title>
+<% if description && !description.empty? -%>
+<meta content="<%= description %>" name="description"/>
+<% end -%>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="/assets/css/style.css" rel="stylesheet" type="text/css"/>
+<link href="/assets/images/favicon.ico" rel="shortcut icon" type="image/x-icon"/>
+<link href="/assets/images/webclip.png" rel="apple-touch-icon"/>
+</head>
+<body>
+<div class="page" id="top">
+
+  <h1 class="project-title-main reveal"><%= title %></h1>
+
+<% if intro_paragraphs.any? -%>
+  <div class="intro rich-text reveal">
+<% intro_paragraphs.each do |p| -%>
+    <p><%= p %></p>
+<% end -%>
+  </div>
+<% end -%>
+
+<% blocks.each do |block| -%>
+<% if block[:type] == :figure -%>
+  <figure class="case-figure reveal">
+    <img class="case-image" src="<%= block[:src] %>" loading="lazy" alt=""/>
+<% if block[:caption] && !block[:caption].empty? -%>
+    <figcaption class="case-caption"><%= block[:caption] %></figcaption>
+<% end -%>
+  </figure>
+<% else -%>
+  <section class="case-section rich-text reveal">
+<% if block[:label] && !block[:label].empty? -%>
+    <p class="section-label"><%= block[:label] %></p>
+<% end -%>
+<% block[:paragraphs].each do |p| -%>
+    <p><%= p %></p>
+<% end -%>
+  </section>
+<% end -%>
+<% end -%>
+
+<% if other_projects.any? -%>
+  <nav class="more-projects reveal">
+    <p class="section-label">More projects</p>
+    <ul class="more-projects-list">
+<% other_projects.each do |op| -%>
+      <li><a href="/<%= op[:slug] %>.html" class="link"><%= op[:title] %></a></li>
+<% end -%>
+    </ul>
+  </nav>
+<% end -%>
+
+  <footer class="footer reveal">
+    <a href="/" class="link">Back home</a>
+    <a href="#top" class="link">Back to top</a>
+  </footer>
+
+</div>
+<script src="/assets/js/main.js" defer></script>
+</body>
+</html>

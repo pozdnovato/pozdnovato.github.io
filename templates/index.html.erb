@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Aleksei Gorokhovskii | Graphic Designer | Portfolio</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="/assets/css/style.css" rel="stylesheet" type="text/css"/>
+<link href="/assets/images/favicon.ico" rel="shortcut icon" type="image/x-icon"/>
+<link href="/assets/images/webclip.png" rel="apple-touch-icon"/>
+</head>
+<body>
+<div class="page" id="top">
+
+  <header class="hero">
+    <div class="name-row reveal">
+      <h1 class="name"><%= name %></h1>
+      <img class="avatar" src="/assets/images/6aa8fb8160d0fc55d58b7285_dd0c124b6a42d9f230db25111dcf4078_userpic.webp" alt="<%= name %>"/>
+    </div>
+    <div class="bio rich-text reveal">
+<% bio_paragraphs.each do |p| -%>
+      <p><%= p %></p>
+<% end -%>
+    </div>
+    <nav class="links-row reveal">
+<% links.each do |link| -%>
+      <a href="<%= link[:url] %>" class="link"<% unless link[:mailto] %> target="_blank" rel="noopener"<% end %>><%= link[:label] %></a>
+<% end -%>
+    </nav>
+  </header>
+
+  <main class="project-grid">
+<% projects.each do |proj| -%>
+    <a href="/<%= proj[:slug] %>.html" class="project-card reveal">
+      <img class="project-thumb" src="<%= proj[:thumb] %>" loading="lazy" alt="<%= proj[:title] %>"/>
+      <div class="project-caption">
+        <p class="project-meta"><%= proj[:meta] %></p>
+        <p class="project-title"><%= proj[:title] %></p>
+      </div>
+    </a>
+<% end -%>
+  </main>
+
+  <footer class="footer">
+    <a href="#top" class="link">Back to top</a>
+  </footer>
+
+</div>
+<script src="/assets/js/main.js" defer></script>
+</body>
+</html>
