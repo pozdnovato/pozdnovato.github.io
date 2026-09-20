@@ -267,7 +267,8 @@ def build_case_structure(blocks, slug)
       flush_current.call
       image_index += 1
       url = image_block_url(block)
-      src = download_image(url, "#{slug}-#{block['id'].delete('-')[0, 12]}")
+      puts "      [debug] image ##{image_index} block_id=#{block['id']} url=#{url&.slice(0, 80)}"
+      src = download_image(url, "#{slug}-img#{image_index}-#{block['id'].delete('-')[0, 8]}")
       caption = rich_text_to_plain(block.dig('image', 'caption'))
       out << { type: :figure, src: src, caption: caption }
     end
