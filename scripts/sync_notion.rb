@@ -175,6 +175,10 @@ def page_title_text(page)
   rich_text_to_plain(title_prop && title_prop['title'])
 end
 
+def build_full_title(name, meta)
+  meta.to_s.strip.empty? ? name : "#{name} for a #{meta}"
+end
+
 def slugify(text)
   text.downcase
       .gsub(/[^a-z0-9]+/, '-')
@@ -334,10 +338,14 @@ projects = project_rows.map do |row|
                 first_figure ? first_figure[:src] : nil
               end
 
+  meta = prop_rich_text(row, 'Meta')
+  full_title = build_full_title(name, meta)
+
   {
     slug: slug,
     title: name,
-    meta: prop_rich_text(row, 'Meta'),
+    full_title: full_title,
+    meta: meta,
     description: prop_rich_text(row, 'Description'),
     order: prop_number(row, 'Order') || 0,
     thumb: thumb_src,
@@ -359,10 +367,10 @@ generated_files = ['index.html']
 
 projects.each do |proj|
   other_projects = projects.reject { |p| p[:slug] == proj[:slug] }
-                            .map { |p| { slug: p[:slug], title: p[:title] } }
+                            .map { |p| { slug: p[:slug], title: p[:full_title] } }
 
   html = render('project.html.erb', {
-                  title: proj[:title],
+                  title: proj[:full_title],
                   description: proj[:description],
                   intro_paragraphs: proj[:intro],
                   blocks: proj[:blocks],

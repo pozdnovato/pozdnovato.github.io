@@ -37,6 +37,18 @@ check('slugify lowercases and hyphenates', failures) do
   slugify('A Self-Serve Color System!') == 'a-self-serve-color-system'
 end
 
+# ---- build_full_title --------------------------------------------------------
+
+check('full title combines card title and meta with "for a"', failures) do
+  build_full_title('A Character Illustration System', 'Tempo Software') ==
+    'A Character Illustration System for a Tempo Software'
+end
+
+check('full title falls back to the plain name when meta is blank', failures) do
+  build_full_title('Industrial Site Navigation', '') == 'Industrial Site Navigation' &&
+    build_full_title('Industrial Site Navigation', nil) == 'Industrial Site Navigation'
+end
+
 # ---- build_case_structure ----------------------------------------------------
 
 def block(type, data)
