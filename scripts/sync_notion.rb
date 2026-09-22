@@ -9,8 +9,9 @@
 #     - page title = site owner's name, shown as <h1 class="name">
 #     - page body  = bio paragraphs, in order (plain paragraph blocks)
 #
-#   Links database: Label (title), URL (rich text -- not Notion's native
-#   "URL" property type, which can mangle mailto: links), Order (number)
+#   Links database: Name (title -- the link's label, e.g. "LinkedIn"),
+#   Link (rich text -- not Notion's native "URL" property type, which can
+#   mangle mailto: links), Order (number)
 #
 #   Projects database:
 #     Name (title -- card title on the grid, and the slug source when Slug
@@ -314,11 +315,8 @@ bio_paragraphs = home_blocks
 puts '==> Fetching links'
 link_rows = query_database(LINKS_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
 links = link_rows.map do |row|
-  label = prop_title(row, 'Label')
-  url = prop_rich_text(row, 'URL')
-  types = row['properties'].transform_values { |v| v['type'] }
-  puts "    [debug] row properties=#{types.inspect} label=#{label.inspect} url=#{url.inspect}"
-  puts "    [debug] raw=#{row['properties'].inspect}"
+  label = prop_title(row, 'Name')
+  url = prop_rich_text(row, 'Link')
   { label: label, url: url, mailto: url.to_s.start_with?('mailto:') }
 end
 
