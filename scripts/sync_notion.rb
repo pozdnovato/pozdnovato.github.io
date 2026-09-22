@@ -316,6 +316,7 @@ link_rows = query_database(LINKS_DB_ID, sorts: [{ property: 'Order', direction: 
 links = link_rows.map do |row|
   label = prop_title(row, 'Label')
   url = prop_rich_text(row, 'URL')
+  puts "    [debug] row properties=#{row['properties'].keys.inspect} label=#{label.inspect} url=#{url.inspect}"
   { label: label, url: url, mailto: url.to_s.start_with?('mailto:') }
 end
 
