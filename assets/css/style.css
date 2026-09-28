@@ -168,6 +168,7 @@ img {
 .project-meta {
   font-weight: 500;
   font-size: 0.875rem;
+  transition: color var(--card-transition);
 }
 
 .project-title {
@@ -176,6 +177,8 @@ img {
   transition: color var(--card-transition);
 }
 
+.project-card:hover .project-meta,
+.project-card:focus-visible .project-meta,
 .project-card:hover .project-title,
 .project-card:focus-visible .project-title {
   color: var(--accent);
