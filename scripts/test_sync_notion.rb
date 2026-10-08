@@ -152,12 +152,13 @@ end
 
 # ---- /about page -------------------------------------------------------------
 
-def about_row(name, link, color = nil)
+def about_row(name, link, color = nil, white: nil)
   props = {
     'Name' => { 'type' => 'title', 'title' => [{ 'plain_text' => name }] },
     'Link' => { 'type' => 'rich_text', 'rich_text' => link ? [{ 'plain_text' => link }] : [] }
   }
   props['Color'] = { 'type' => 'rich_text', 'rich_text' => [{ 'plain_text' => color }] } if color
+  props['White'] = { 'type' => 'checkbox', 'checkbox' => white } unless white.nil?
   { 'properties' => props }
 end
 
@@ -194,40 +195,54 @@ check('parse_pill_colors rejects blank cells and any invalid entry (whole cell i
     parse_pill_colors('#ff0000;banana').nil? && parse_pill_colors('#ff0000; url(x)').nil?
 end
 
-check('pill_style: dark fill gets white text, light fill gets black text', failures) do
-  pill_style(['#111111']).include?('--pill-fg: #ffffff') &&
-    pill_style(['#ffd400']).include?('--pill-fg: #000000')
-end
-
 check('pill_style: a single color is a plain fill, several make a left-to-right gradient', failures) do
-  pill_style(['#ffd400']).start_with?('--pill-bg: #ffd400;') &&
-    pill_style(['#ff0000', '#0000ff']).start_with?('--pill-bg: linear-gradient(to right, #ff0000, #0000ff);')
+  pill_style(['#ffd400'], false).start_with?('--pill-bg: #ffd400;') &&
+    pill_style(['#ff0000', '#0000ff'], false).start_with?('--pill-bg: linear-gradient(to right, #ff0000, #0000ff);')
 end
 
-check('pill_style: text color is chosen against the whole gradient, not just the first stop', failures) do
-  # white on the left, near-black on the right: neither label color works
-  # everywhere, so the pick must be whichever is least bad (never raises)
-  %w[#000000 #ffffff].include?(pill_style(['#ffffff', '#111111'])[/--pill-fg: (#\h{6})/, 1]) &&
-    # dark on both ends of a gradient -> white
-    pill_style(['#001a66', '#330066']).include?('--pill-fg: #ffffff')
+check('pill_style: label color is only what the White checkbox says, never guessed from the fill', failures) do
+  # black label on a near-black fill and white label on a pale one: the
+  # editor's call wins, even when it is a poor choice
+  pill_style(['#111111'], false).include?('--pill-fg: #000000') &&
+    pill_style(['#ffd400'], true).include?('--pill-fg: #ffffff') &&
+    pill_style(['#111111'], true).include?('--pill-fg: #ffffff') &&
+    pill_style(['#ffd400'], false).include?('--pill-fg: #000000')
 end
 
-check('pill_style: hover label turns accent blue only where it stays legible', failures) do
-  pill_style(['#ffd400']).include?('--pill-hover-fg: var(--accent)') &&
-    pill_style(['#000000']).include?('--pill-hover-fg: #ffffff') &&
-    pill_style(['#0a2a8a']).include?('--pill-hover-fg: #ffffff')
+check('pill_style: without a fill, only a ticked White changes anything', failures) do
+  pill_style(nil, false).nil? && pill_style(nil, true) == '--pill-fg: #ffffff'
 end
 
-check('about_cards_from_rows attaches a style only to rows with a valid Color', failures) do
+check('pill_style: hover label turns accent blue only where it stays legible, else keeps the chosen color', failures) do
+  pill_style(['#ffd400'], false).include?('--pill-hover-fg: var(--accent)') &&
+    pill_style(['#ffd400'], true).include?('--pill-hover-fg: var(--accent)') &&
+    pill_style(['#000000'], true).include?('--pill-hover-fg: #ffffff') &&
+    pill_style(['#0a2a8a'], true).include?('--pill-hover-fg: #ffffff') &&
+    pill_style(['#0a2a8a'], false).include?('--pill-hover-fg: #000000')
+end
+
+check('about_cards_from_rows: Color paints, White ticks the label white, both are independent', failures) do
   rows = [
     about_row('Plain', 'https://a.example/'),
+    about_row('Plain white', 'https://a2.example/', white: true),
+    about_row('Plain unticked', 'https://a3.example/', white: false),
     about_row('Solid', 'https://b.example/', '#ff6600'),
+    about_row('Solid white', 'https://b2.example/', '#001a66', white: true),
     about_row('Gradient', 'https://c.example/', '#ff0000;#0000ff'),
-    about_row('Broken', 'https://d.example/', 'orange')
+    about_row('Broken', 'https://d.example/', 'orange'),
+    about_row('Broken white', 'https://d2.example/', 'orange', white: true)
   ]
   result = nil
   capture_streams { result = about_cards_from_rows(rows) }
-  result.map { |c| !c[:style].nil? } == [false, true, true, false]
+  styles = result.map { |c| c[:style] }
+  styles[0].nil? &&
+    styles[1] == '--pill-fg: #ffffff' &&
+    styles[2].nil? &&
+    styles[3].include?('--pill-bg: #ff6600') && styles[3].include?('--pill-fg: #000000') &&
+    styles[4].include?('--pill-bg: #001a66') && styles[4].include?('--pill-fg: #ffffff') &&
+    styles[5].include?('linear-gradient') &&
+    styles[6].nil? &&
+    styles[7] == '--pill-fg: #ffffff'
 end
 
 check('an invalid Color is reported on stderr instead of failing', failures) do
@@ -239,7 +254,7 @@ check('about.html.erb writes a card style only when one is given, and scopes the
   html = render('about.html.erb', {
                    heading: 'T', bio_paragraphs: ['d'],
                    cards: [{ label: 'Plain', url: 'https://a.example/', mailto: false, style: nil },
-                           { label: 'Tinted', url: 'https://b.example/', mailto: false, style: pill_style(['#ffd400']) }]
+                           { label: 'Tinted', url: 'https://b.example/', mailto: false, style: pill_style(['#ffd400'], false) }]
                  })
   html.scan(' style="').length == 1 &&
     html.include?('style="--pill-bg: #ffd400; --pill-fg: #000000;') &&

@@ -17,7 +17,9 @@
 #   not linked from the home page): same columns as Links -- Name (title),
 #   Link (rich text), Order (number), and optionally Color (rich text: a HEX
 #   such as "#ff6600", or HEXes separated by ";" for a left-to-right
-#   gradient; blank = the default gray). Its heading (<h1> and tab title) is the
+#   gradient; blank = the default gray) and White (checkbox: label is white
+#   when ticked, black otherwise; the label color is never auto-picked).
+#   Its heading (<h1> and tab title) is the
 #   title of the optional page NOTION_ABOUT_PAGE_ID and its description is
 #   that page's body paragraphs; when it is unset the page falls back to the
 #   Home name and bio. There is no avatar on this page.
@@ -352,25 +354,26 @@ def fill_luminances(colors, steps = 10)
   end
 end
 
-# Inline custom properties for one card: its fill, a black-or-white label
-# color that stays readable across the whole fill, and the hover label color
-# (the accent blue only where it is still legible on that fill, otherwise the
-# normal label color).
-def pill_style(colors)
-  lums = fill_luminances(colors)
-  worst_contrast = ->(label_lum) { lums.map { |l| contrast_ratio(l, label_lum) }.min }
+# Inline custom properties for one card, or nil when it keeps the default look
+# (gray fill, black label). The label color is the editor's choice (the White
+# checkbox in Notion), never guessed from the fill. With a fill, the hover
+# label color is added too: accent blue only where blue is still legible on
+# that fill, otherwise the same label color.
+def pill_style(colors, white)
+  fg = white ? '#ffffff' : '#000000'
+  return (white ? "--pill-fg: #{fg}" : nil) if colors.nil?
 
-  fg = worst_contrast.call(0.0) >= worst_contrast.call(1.0) ? '#000000' : '#ffffff'
-  accent_ok = worst_contrast.call(relative_luminance(hex_rgb(ACCENT_HEX))) >= 4.5
+  accent_lum = relative_luminance(hex_rgb(ACCENT_HEX))
+  accent_ok = fill_luminances(colors).map { |l| contrast_ratio(l, accent_lum) }.min >= 4.5
   bg = colors.length == 1 ? colors.first : "linear-gradient(to right, #{colors.join(', ')})"
 
   "--pill-bg: #{bg}; --pill-fg: #{fg}; --pill-hover-fg: #{accent_ok ? 'var(--accent)' : fg}"
 end
 
 # Link cards for the /about page. Same Notion columns as the header Links
-# database (Name = label, Link = url) plus an optional Color; rows missing a
-# label or url are skipped so a half-filled draft row never renders as a dead
-# card.
+# database (Name = label, Link = url) plus the optional Color (fill) and White
+# (checkbox: white label instead of black); rows missing a label or url are
+# skipped so a half-filled draft row never renders as a dead card.
 def about_cards_from_rows(rows)
   cards = rows.map do |row|
     url = prop_rich_text(row, 'Link').strip
@@ -381,7 +384,8 @@ def about_cards_from_rows(rows)
       warn "    warning: ignoring invalid Color #{color_text.inspect} on \"#{label}\""
     end
 
-    { label: label, url: url, mailto: url.start_with?('mailto:'), style: colors && pill_style(colors) }
+    { label: label, url: url, mailto: url.start_with?('mailto:'),
+      style: pill_style(colors, prop_checkbox(row, 'White')) }
   end
   cards.reject { |c| c[:label].empty? || c[:url].empty? }
 end
