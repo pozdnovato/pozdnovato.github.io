@@ -178,7 +178,7 @@ end
 
 check('about.html.erb renders cards, escapes text, and has no home-page links', failures) do
   html = render('about.html.erb', {
-                   name: 'Test Person',
+                   heading: 'Test Person',
                    bio_paragraphs: ['Bio line.'],
                    cards: [{ label: 'Q&A <live>', url: 'https://x.com/?a=1&b=2', mailto: false },
                            { label: 'Email', url: 'mailto:x@example.com', mailto: true }]
@@ -207,16 +207,41 @@ check('paragraphs_html keeps only non-empty paragraphs, with inline formatting',
 end
 
 check('about page carries the 18+ gate wired to its script', failures) do
-  html = render('about.html.erb', { name: 'T', bio_paragraphs: ['d'], cards: [] })
+  html = render('about.html.erb', { heading: 'T', bio_paragraphs: ['d'], cards: [] })
   html.include?('class="has-age-gate"') &&
-    html.include?('src="/assets/js/age-gate.js"') &&
+    html.include?('src="/assets/js/age-gate.js?v=') &&
     html.include?('id="age-gate"') &&
     html.include?('data-age-yes') && html.include?('data-age-no') &&
     html.include?('data-age-denied hidden')
 end
 
+check('about page shows the Notion heading as <h1> and tab title, with no avatar', failures) do
+  html = render('about.html.erb', { heading: 'All my <links>', bio_paragraphs: [], cards: [] })
+  html.include?('<title>All my &lt;links&gt;</title>') &&
+    html.include?('<h1 class="name">All my &lt;links&gt;</h1>') &&
+    !html.include?('avatar')
+end
+
+check('about page loads CSS and JS through content-versioned URLs', failures) do
+  html = render('about.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
+  html =~ %r{href="/assets/css/style\.css\?v=[0-9a-f]{8}"} &&
+    html =~ %r{src="/assets/js/age-gate\.js\?v=[0-9a-f]{8}"} &&
+    html =~ %r{src="/assets/js/main\.js\?v=[0-9a-f]{8}"}
+end
+
+check('asset_url changes when the file content changes', failures) do
+  path = 'assets/.asset_url_probe.tmp'
+  full = File.join(ROOT, path)
+  File.write(full, 'one')
+  first = asset_url(path)
+  File.write(full, 'two')
+  second = asset_url(path)
+  File.delete(full)
+  first != second
+end
+
 check('about page omits the description block when there is no description', failures) do
-  html = render('about.html.erb', { name: 'T', bio_paragraphs: [], cards: [] })
+  html = render('about.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
   !html.include?('class="bio')
 end
 

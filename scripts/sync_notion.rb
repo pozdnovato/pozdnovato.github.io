@@ -15,9 +15,10 @@
 #
 #   About-links database (optional; enables /about, which is intentionally
 #   not linked from the home page): same columns as Links -- Name (title),
-#   Link (rich text), Order (number). The page reuses the Home page's name
-#   and avatar. Its description is the body paragraphs of the optional page
-#   NOTION_ABOUT_PAGE_ID, falling back to the Home bio when that is unset.
+#   Link (rich text), Order (number). Its heading (<h1> and tab title) is the
+#   title of the optional page NOTION_ABOUT_PAGE_ID and its description is
+#   that page's body paragraphs; when it is unset the page falls back to the
+#   Home name and bio. There is no avatar on this page.
 #   The page carries an 18+ confirmation screen (assets/js/age-gate.js).
 #   Set NOTION_ABOUT_DB_ID to turn the page on.
 #
@@ -309,6 +310,14 @@ def about_cards_from_rows(rows)
   cards.reject { |c| c[:label].empty? || c[:url].empty? }
 end
 
+# Content-versioned URL for a local asset ("assets/css/style.css" ->
+# "/assets/css/style.css?v=1a2b3c4d"). Cloudflare tells browsers to cache
+# static files for hours, so a changed stylesheet only reaches returning
+# visitors if its URL changes with its content.
+def asset_url(path)
+  "/#{path}?v=#{Digest::MD5.file(File.join(ROOT, path)).hexdigest[0, 8]}"
+end
+
 # ---- render -----------------------------------------------------------------
 
 def render(template_name, locals)
@@ -392,6 +401,7 @@ end
 
 about_cards = []
 about_bio = bio_paragraphs
+about_heading = site_name
 unless ABOUT_DB_ID.empty?
   puts '==> Fetching about-page link cards'
   about_cards = about_cards_from_rows(
@@ -399,7 +409,9 @@ unless ABOUT_DB_ID.empty?
   )
 
   unless ABOUT_PAGE_ID.empty?
-    puts '==> Fetching about-page description'
+    puts '==> Fetching about-page heading + description'
+    notion_heading = page_title_text(get_page(ABOUT_PAGE_ID)).strip
+    about_heading = notion_heading unless notion_heading.empty?
     about_bio = paragraphs_html(get_block_children(ABOUT_PAGE_ID))
   end
 end
@@ -434,7 +446,7 @@ end
 
 unless ABOUT_DB_ID.empty?
   about_html = render('about.html.erb', {
-                        name: site_name,
+                        heading: about_heading,
                         bio_paragraphs: about_bio,
                         cards: about_cards
                       })
