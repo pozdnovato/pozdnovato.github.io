@@ -184,6 +184,39 @@ img {
   color: var(--accent);
 }
 
+/* ---- about page: link cards ---- */
+
+.about-links {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.about-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 5rem;
+  padding: 0 1.5rem;
+  background: #EEEEEE;
+  border-radius: var(--radius);
+  color: inherit;
+  font-size: 1.375rem;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  outline: 2px solid transparent;
+  outline-offset: 0;
+  transition: outline-color var(--card-transition), color var(--card-transition);
+}
+
+.about-link:hover,
+.about-link:focus-visible {
+  outline-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ---- footer ---- */
 
 .footer {

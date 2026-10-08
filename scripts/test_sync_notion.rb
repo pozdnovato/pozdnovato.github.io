@@ -150,6 +150,52 @@ check('project.html.erb omits the description meta tag when blank', failures) do
   !html.include?('name="description"')
 end
 
+# ---- /about page -------------------------------------------------------------
+
+def about_row(name, link)
+  {
+    'properties' => {
+      'Name' => { 'type' => 'title', 'title' => [{ 'plain_text' => name }] },
+      'Link' => { 'type' => 'rich_text', 'rich_text' => link ? [{ 'plain_text' => link }] : [] }
+    }
+  }
+end
+
+cards = about_cards_from_rows([
+                                about_row('Portfolio', 'https://pozdnovato.com/'),
+                                about_row('Email', 'mailto:me@example.com'),
+                                about_row('Draft with no link', nil),
+                                about_row('', 'https://example.com/no-label')
+                              ])
+
+check('about cards keep complete rows in order and skip half-filled drafts', failures) do
+  cards.map { |c| c[:label] } == %w[Portfolio Email]
+end
+
+check('about cards flag mailto links so they skip target=_blank', failures) do
+  cards.map { |c| c[:mailto] } == [false, true]
+end
+
+check('about.html.erb renders cards, escapes text, and has no home-page links', failures) do
+  html = render('about.html.erb', {
+                   name: 'Test Person',
+                   bio_paragraphs: ['Bio line.'],
+                   cards: [{ label: 'Q&A <live>', url: 'https://x.com/?a=1&b=2', mailto: false },
+                           { label: 'Email', url: 'mailto:x@example.com', mailto: true }]
+                 })
+  html.include?('class="about-link reveal"') &&
+    html.include?('Q&amp;A &lt;live&gt;') &&
+    html.include?('href="https://x.com/?a=1&amp;b=2"') &&
+    html.include?('Bio line.') &&
+    html.scan('target="_blank" rel="noopener"').length == 1 &&
+    !html.include?('project-card')
+end
+
+check('index template output is unchanged by the about feature (no link to /about)', failures) do
+  html = render('index.html.erb', { name: 'T', bio_paragraphs: [], links: [], projects: [] })
+  !html.include?('about')
+end
+
 puts
 if failures.empty?
   puts "All checks passed."

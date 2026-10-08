@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title><%= html_escape(name) %> | Links</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="/assets/css/style.css" rel="stylesheet" type="text/css"/>
+<link href="/assets/images/favicon.ico" rel="shortcut icon" type="image/x-icon"/>
+<link href="/assets/images/webclip.png" rel="apple-touch-icon"/>
+</head>
+<body>
+<div class="page" id="top">
+
+  <header class="hero">
+    <div class="name-row reveal">
+      <h1 class="name"><%= html_escape(name) %></h1>
+      <img class="avatar" src="/assets/images/6aa8fb8160d0fc55d58b7285_dd0c124b6a42d9f230db25111dcf4078_userpic.webp" alt="<%= html_escape(name) %>"/>
+    </div>
+    <div class="bio rich-text reveal">
+<% bio_paragraphs.each do |p| -%>
+      <p><%= p %></p>
+<% end -%>
+    </div>
+  </header>
+
+  <nav class="about-links">
+<% cards.each do |card| -%>
+    <a href="<%= html_escape(card[:url]) %>" class="about-link reveal"<% unless card[:mailto] %> target="_blank" rel="noopener"<% end %>><%= html_escape(card[:label]) %></a>
+<% end -%>
+  </nav>
+
+</div>
+<script src="/assets/js/main.js" defer></script>
+</body>
+</html>

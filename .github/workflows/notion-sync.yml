@@ -26,6 +26,7 @@ jobs:
           NOTION_HOME_PAGE_ID: ${{ secrets.NOTION_HOME_PAGE_ID }}
           NOTION_PROJECTS_DB_ID: ${{ secrets.NOTION_PROJECTS_DB_ID }}
           NOTION_LINKS_DB_ID: ${{ secrets.NOTION_LINKS_DB_ID }}
+          NOTION_ABOUT_DB_ID: ${{ secrets.NOTION_ABOUT_DB_ID }}
         run: ruby scripts/sync_notion.rb
 
       - name: Commit and push if the site changed

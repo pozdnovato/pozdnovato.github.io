@@ -13,6 +13,11 @@
 #   Link (rich text -- not Notion's native "URL" property type, which can
 #   mangle mailto: links), Order (number)
 #
+#   About-links database (optional; enables /about, which is intentionally
+#   not linked from the home page): same columns as Links -- Name (title),
+#   Link (rich text), Order (number). The page reuses the Home page's name
+#   and bio. Set NOTION_ABOUT_DB_ID to turn it on.
+#
 #   Projects database:
 #     Name (title -- card title on the grid, and the slug source when Slug
 #     is blank), Meta (rich text -- the small client/context line above the
@@ -284,6 +289,17 @@ def build_case_structure(blocks, slug)
   { intro: intro, blocks: out }
 end
 
+# Link cards for the /about page. Same Notion columns as the header Links
+# database (Name = label, Link = url); rows missing either are skipped so a
+# half-filled draft row never renders as a dead card.
+def about_cards_from_rows(rows)
+  cards = rows.map do |row|
+    url = prop_rich_text(row, 'Link').strip
+    { label: prop_title(row, 'Name').strip, url: url, mailto: url.start_with?('mailto:') }
+  end
+  cards.reject { |c| c[:label].empty? || c[:url].empty? }
+end
+
 # ---- render -----------------------------------------------------------------
 
 def render(template_name, locals)
@@ -302,6 +318,8 @@ if __FILE__ == $PROGRAM_NAME
 HOME_PAGE_ID = ENV.fetch('NOTION_HOME_PAGE_ID')
 PROJECTS_DB_ID = ENV.fetch('NOTION_PROJECTS_DB_ID')
 LINKS_DB_ID = ENV.fetch('NOTION_LINKS_DB_ID')
+# Optional: without it the /about page is simply not generated.
+ABOUT_DB_ID = ENV['NOTION_ABOUT_DB_ID'].to_s.strip
 
 puts '==> Fetching home page (name + bio)'
 home_page = get_page(HOME_PAGE_ID)
@@ -360,6 +378,14 @@ projects = project_rows.map do |row|
   }
 end
 
+about_cards = []
+unless ABOUT_DB_ID.empty?
+  puts '==> Fetching about-page link cards'
+  about_cards = about_cards_from_rows(
+    query_database(ABOUT_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
+  )
+end
+
 puts '==> Rendering index.html'
 index_html = render('index.html.erb', {
                        name: site_name,
@@ -386,6 +412,17 @@ projects.each do |proj|
   File.write(File.join(ROOT, filename), html)
   generated_files << filename
   puts "    wrote #{filename}"
+end
+
+unless ABOUT_DB_ID.empty?
+  about_html = render('about.html.erb', {
+                        name: site_name,
+                        bio_paragraphs: bio_paragraphs,
+                        cards: about_cards
+                      })
+  File.write(File.join(ROOT, 'about.html'), about_html)
+  generated_files << 'about.html'
+  puts '    wrote about.html'
 end
 
 # ---- clean up pages that are no longer published ---------------------------
