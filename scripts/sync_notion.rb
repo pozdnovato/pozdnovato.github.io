@@ -15,7 +15,9 @@
 #
 #   About-links database (optional; enables /about, which is intentionally
 #   not linked from the home page): same columns as Links -- Name (title),
-#   Link (rich text), Order (number). Its heading (<h1> and tab title) is the
+#   Link (rich text), Order (number), and optionally Color (rich text: a HEX
+#   such as "#ff6600", or HEXes separated by ";" for a left-to-right
+#   gradient; blank = the default gray). Its heading (<h1> and tab title) is the
 #   title of the optional page NOTION_ABOUT_PAGE_ID and its description is
 #   that page's body paragraphs; when it is unset the page falls back to the
 #   Home name and bio. There is no avatar on this page.
@@ -299,13 +301,87 @@ def paragraphs_html(blocks)
         .reject { |t| t.strip.empty? }
 end
 
+HEX_COLOR = /\A#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\z/.freeze
+# Keep in sync with --accent in assets/css/style.css.
+ACCENT_HEX = '#000fff'.freeze
+
+# Parses the Notion "Color" cell: one HEX ("#ff6600", "f60") or several
+# separated by ";" ("#ff6600; #0033ff" = left-to-right gradient). Returns
+# normalized "#rrggbb" strings, or nil when the cell is blank or any entry is
+# not a valid 3/6-digit HEX (the whole cell is ignored rather than guessed at).
+def parse_pill_colors(text)
+  entries = text.to_s.split(';').map(&:strip).reject(&:empty?)
+  return nil if entries.empty? || !entries.all? { |e| e.match?(HEX_COLOR) }
+
+  entries.map do |e|
+    hex = e.delete_prefix('#').downcase
+    hex = hex.chars.map { |c| c * 2 }.join if hex.length == 3
+    "##{hex}"
+  end
+end
+
+def hex_rgb(hex)
+  hex.delete_prefix('#').scan(/../).map { |h| h.to_i(16) }
+end
+
+# WCAG relative luminance of an [r, g, b] triple (0-255 each).
+def relative_luminance(rgb)
+  r, g, b = rgb.map do |v|
+    c = v / 255.0
+    c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055)**2.4
+  end
+  0.2126 * r + 0.7152 * g + 0.0722 * b
+end
+
+def contrast_ratio(lum_a, lum_b)
+  hi, lo = [lum_a, lum_b].max, [lum_a, lum_b].min
+  (hi + 0.05) / (lo + 0.05)
+end
+
+# Luminance of the fill at points along a left-to-right gradient through the
+# given stops (CSS blends in sRGB, so the sampling does too).
+def fill_luminances(colors, steps = 10)
+  rgbs = colors.map { |c| hex_rgb(c) }
+  return [relative_luminance(rgbs.first)] if rgbs.length == 1
+
+  rgbs.each_cons(2).flat_map do |from, to|
+    (0..steps).map do |i|
+      t = i / steps.to_f
+      relative_luminance(from.zip(to).map { |a, b| (a + (b - a) * t).round })
+    end
+  end
+end
+
+# Inline custom properties for one card: its fill, a black-or-white label
+# color that stays readable across the whole fill, and the hover label color
+# (the accent blue only where it is still legible on that fill, otherwise the
+# normal label color).
+def pill_style(colors)
+  lums = fill_luminances(colors)
+  worst_contrast = ->(label_lum) { lums.map { |l| contrast_ratio(l, label_lum) }.min }
+
+  fg = worst_contrast.call(0.0) >= worst_contrast.call(1.0) ? '#000000' : '#ffffff'
+  accent_ok = worst_contrast.call(relative_luminance(hex_rgb(ACCENT_HEX))) >= 4.5
+  bg = colors.length == 1 ? colors.first : "linear-gradient(to right, #{colors.join(', ')})"
+
+  "--pill-bg: #{bg}; --pill-fg: #{fg}; --pill-hover-fg: #{accent_ok ? 'var(--accent)' : fg}"
+end
+
 # Link cards for the /about page. Same Notion columns as the header Links
-# database (Name = label, Link = url); rows missing either are skipped so a
-# half-filled draft row never renders as a dead card.
+# database (Name = label, Link = url) plus an optional Color; rows missing a
+# label or url are skipped so a half-filled draft row never renders as a dead
+# card.
 def about_cards_from_rows(rows)
   cards = rows.map do |row|
     url = prop_rich_text(row, 'Link').strip
-    { label: prop_title(row, 'Name').strip, url: url, mailto: url.start_with?('mailto:') }
+    label = prop_title(row, 'Name').strip
+    color_text = prop_rich_text(row, 'Color')
+    colors = parse_pill_colors(color_text)
+    if colors.nil? && !color_text.strip.empty?
+      warn "    warning: ignoring invalid Color #{color_text.inspect} on \"#{label}\""
+    end
+
+    { label: label, url: url, mailto: url.start_with?('mailto:'), style: colors && pill_style(colors) }
   end
   cards.reject { |c| c[:label].empty? || c[:url].empty? }
 end

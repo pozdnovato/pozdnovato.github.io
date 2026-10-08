@@ -29,7 +29,7 @@
 
 <div class="page" id="top">
 
-  <header class="hero">
+  <header class="hero about-hero">
     <div class="name-row reveal">
       <h1 class="name"><%= html_escape(heading) %></h1>
     </div>
@@ -44,7 +44,7 @@
 
   <nav class="about-links">
 <% cards.each do |card| -%>
-    <a href="<%= html_escape(card[:url]) %>" class="about-link reveal"<% unless card[:mailto] %> target="_blank" rel="noopener"<% end %>><%= html_escape(card[:label]) %></a>
+    <a href="<%= html_escape(card[:url]) %>" class="about-link reveal"<% if card[:style] %> style="<%= card[:style] %>"<% end %><% unless card[:mailto] %> target="_blank" rel="noopener"<% end %>><%= html_escape(card[:label]) %></a>
 <% end -%>
   </nav>
 

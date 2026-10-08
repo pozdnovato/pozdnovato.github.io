@@ -152,13 +152,102 @@ end
 
 # ---- /about page -------------------------------------------------------------
 
-def about_row(name, link)
-  {
-    'properties' => {
-      'Name' => { 'type' => 'title', 'title' => [{ 'plain_text' => name }] },
-      'Link' => { 'type' => 'rich_text', 'rich_text' => link ? [{ 'plain_text' => link }] : [] }
-    }
+def about_row(name, link, color = nil)
+  props = {
+    'Name' => { 'type' => 'title', 'title' => [{ 'plain_text' => name }] },
+    'Link' => { 'type' => 'rich_text', 'rich_text' => link ? [{ 'plain_text' => link }] : [] }
   }
+  props['Color'] = { 'type' => 'rich_text', 'rich_text' => [{ 'plain_text' => color }] } if color
+  { 'properties' => props }
+end
+
+# ---- card colors ------------------------------------------------------------
+
+require 'stringio'
+
+# Runs the block with $stdout/$stderr captured; returns [stdout, stderr].
+def capture_streams
+  old_out = $stdout
+  old_err = $stderr
+  $stdout = StringIO.new
+  $stderr = StringIO.new
+  yield
+  [$stdout.string, $stderr.string]
+ensure
+  $stdout = old_out
+  $stderr = old_err
+end
+
+check('parse_pill_colors normalizes one HEX (with/without #, 3 or 6 digits, any case)', failures) do
+  parse_pill_colors('#FF6600') == ['#ff6600'] &&
+    parse_pill_colors('ff6600') == ['#ff6600'] &&
+    parse_pill_colors('#f60') == ['#ff6600']
+end
+
+check('parse_pill_colors splits ";" lists, tolerating spaces and a trailing ";"', failures) do
+  parse_pill_colors('#FF0000; #0000ff;') == ['#ff0000', '#0000ff']
+end
+
+check('parse_pill_colors rejects blank cells and any invalid entry (whole cell ignored)', failures) do
+  parse_pill_colors('').nil? && parse_pill_colors(nil).nil? &&
+    parse_pill_colors('red').nil? && parse_pill_colors('#12').nil? &&
+    parse_pill_colors('#ff0000;banana').nil? && parse_pill_colors('#ff0000; url(x)').nil?
+end
+
+check('pill_style: dark fill gets white text, light fill gets black text', failures) do
+  pill_style(['#111111']).include?('--pill-fg: #ffffff') &&
+    pill_style(['#ffd400']).include?('--pill-fg: #000000')
+end
+
+check('pill_style: a single color is a plain fill, several make a left-to-right gradient', failures) do
+  pill_style(['#ffd400']).start_with?('--pill-bg: #ffd400;') &&
+    pill_style(['#ff0000', '#0000ff']).start_with?('--pill-bg: linear-gradient(to right, #ff0000, #0000ff);')
+end
+
+check('pill_style: text color is chosen against the whole gradient, not just the first stop', failures) do
+  # white on the left, near-black on the right: neither label color works
+  # everywhere, so the pick must be whichever is least bad (never raises)
+  %w[#000000 #ffffff].include?(pill_style(['#ffffff', '#111111'])[/--pill-fg: (#\h{6})/, 1]) &&
+    # dark on both ends of a gradient -> white
+    pill_style(['#001a66', '#330066']).include?('--pill-fg: #ffffff')
+end
+
+check('pill_style: hover label turns accent blue only where it stays legible', failures) do
+  pill_style(['#ffd400']).include?('--pill-hover-fg: var(--accent)') &&
+    pill_style(['#000000']).include?('--pill-hover-fg: #ffffff') &&
+    pill_style(['#0a2a8a']).include?('--pill-hover-fg: #ffffff')
+end
+
+check('about_cards_from_rows attaches a style only to rows with a valid Color', failures) do
+  rows = [
+    about_row('Plain', 'https://a.example/'),
+    about_row('Solid', 'https://b.example/', '#ff6600'),
+    about_row('Gradient', 'https://c.example/', '#ff0000;#0000ff'),
+    about_row('Broken', 'https://d.example/', 'orange')
+  ]
+  result = nil
+  capture_streams { result = about_cards_from_rows(rows) }
+  result.map { |c| !c[:style].nil? } == [false, true, true, false]
+end
+
+check('an invalid Color is reported on stderr instead of failing', failures) do
+  _out, err = capture_streams { about_cards_from_rows([about_row('Broken', 'https://d.example/', 'orange')]) }
+  err.include?('ignoring invalid Color') && err.include?('Broken')
+end
+
+check('about.html.erb writes a card style only when one is given, and scopes the hero spacing', failures) do
+  html = render('about.html.erb', {
+                   heading: 'T', bio_paragraphs: ['d'],
+                   cards: [{ label: 'Plain', url: 'https://a.example/', mailto: false, style: nil },
+                           { label: 'Tinted', url: 'https://b.example/', mailto: false, style: pill_style(['#ffd400']) }]
+                 })
+  html.scan(' style="').length == 1 &&
+    html.include?('style="--pill-bg: #ffd400; --pill-fg: #000000;') &&
+    html.include?('<header class="hero about-hero">')
+end
+
+check('the home page header keeps its own spacing class (about-hero is not on index)', failures) do
+  !render('index.html.erb', { name: 'T', bio_paragraphs: [], links: [], projects: [] }).include?('about-hero')
 end
 
 cards = about_cards_from_rows([
