@@ -217,6 +217,76 @@ img {
   color: var(--accent);
 }
 
+/* ---- age gate (about page only; markup lives in templates/about.html.erb) ---- */
+
+html.has-age-gate:not(.age-ok) {
+  overflow: hidden;
+}
+
+.age-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow-y: auto;
+  background: #FFFFFF;
+}
+
+html.age-ok .age-gate,
+.age-gate [hidden] {
+  display: none;
+}
+
+.age-gate-inner {
+  max-width: var(--max-width);
+  padding: 120px;
+}
+
+.age-gate-title {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.age-gate-text {
+  margin-top: 16px;
+}
+
+.age-gate-actions {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.age-gate-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.15em;
+  transition: color var(--link-transition), text-decoration-color var(--link-transition);
+}
+
+.age-gate-button:hover,
+.age-gate-button:focus-visible {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+@media (max-width: 640px) {
+  .age-gate-inner {
+    padding: 72px var(--gutter);
+  }
+
+  .age-gate-title {
+    font-size: 1.5rem;
+  }
+}
+
 /* ---- footer ---- */
 
 .footer {

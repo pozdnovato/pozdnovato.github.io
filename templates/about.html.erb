@@ -1,14 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="has-age-gate">
 <head>
 <meta charset="utf-8"/>
 <title><%= html_escape(name) %> | Links</title>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
+<script src="/assets/js/age-gate.js"></script>
 <link href="/assets/css/style.css" rel="stylesheet" type="text/css"/>
 <link href="/assets/images/favicon.ico" rel="shortcut icon" type="image/x-icon"/>
 <link href="/assets/images/webclip.png" rel="apple-touch-icon"/>
 </head>
 <body>
+<div class="age-gate" id="age-gate" role="dialog" aria-modal="true" aria-labelledby="age-gate-title">
+  <div class="age-gate-inner">
+    <div data-age-question>
+      <h2 class="age-gate-title" id="age-gate-title">Are you 18 or older?</h2>
+      <p class="age-gate-text">You need to be at least 18 to view this page.</p>
+      <div class="age-gate-actions">
+        <button type="button" class="age-gate-button" data-age-yes>I&rsquo;m 18 or older</button>
+        <button type="button" class="age-gate-button" data-age-no>I&rsquo;m under 18</button>
+      </div>
+    </div>
+    <div data-age-denied hidden>
+      <h2 class="age-gate-title">Sorry</h2>
+      <p class="age-gate-text">This page is only for visitors who are 18 or older.</p>
+    </div>
+  </div>
+</div>
+
 <div class="page" id="top">
 
   <header class="hero">
@@ -16,11 +34,13 @@
       <h1 class="name"><%= html_escape(name) %></h1>
       <img class="avatar" src="/assets/images/6aa8fb8160d0fc55d58b7285_dd0c124b6a42d9f230db25111dcf4078_userpic.webp" alt="<%= html_escape(name) %>"/>
     </div>
+<% if bio_paragraphs.any? -%>
     <div class="bio rich-text reveal">
 <% bio_paragraphs.each do |p| -%>
       <p><%= p %></p>
 <% end -%>
     </div>
+<% end -%>
   </header>
 
   <nav class="about-links">

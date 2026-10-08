@@ -191,9 +191,33 @@ check('about.html.erb renders cards, escapes text, and has no home-page links', 
     !html.include?('project-card')
 end
 
-check('index template output is unchanged by the about feature (no link to /about)', failures) do
+check('index template output is unchanged by the about feature (no link to /about, no age gate)', failures) do
   html = render('index.html.erb', { name: 'T', bio_paragraphs: [], links: [], projects: [] })
-  !html.include?('about')
+  !html.include?('about') && !html.include?('age-gate')
+end
+
+check('paragraphs_html keeps only non-empty paragraphs, with inline formatting', failures) do
+  blocks = [
+    block('paragraph', { 'rich_text' => [rt('First '), rt('bold', bold: true)] }),
+    block('heading_3', { 'rich_text' => [rt('ignored')] }),
+    block('paragraph', { 'rich_text' => [] }),
+    block('paragraph', { 'rich_text' => [rt('Second')] })
+  ]
+  paragraphs_html(blocks) == ['First <strong>bold</strong>', 'Second']
+end
+
+check('about page carries the 18+ gate wired to its script', failures) do
+  html = render('about.html.erb', { name: 'T', bio_paragraphs: ['d'], cards: [] })
+  html.include?('class="has-age-gate"') &&
+    html.include?('src="/assets/js/age-gate.js"') &&
+    html.include?('id="age-gate"') &&
+    html.include?('data-age-yes') && html.include?('data-age-no') &&
+    html.include?('data-age-denied hidden')
+end
+
+check('about page omits the description block when there is no description', failures) do
+  html = render('about.html.erb', { name: 'T', bio_paragraphs: [], cards: [] })
+  !html.include?('class="bio')
 end
 
 puts

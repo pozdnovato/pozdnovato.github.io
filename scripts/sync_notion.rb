@@ -16,7 +16,10 @@
 #   About-links database (optional; enables /about, which is intentionally
 #   not linked from the home page): same columns as Links -- Name (title),
 #   Link (rich text), Order (number). The page reuses the Home page's name
-#   and bio. Set NOTION_ABOUT_DB_ID to turn it on.
+#   and avatar. Its description is the body paragraphs of the optional page
+#   NOTION_ABOUT_PAGE_ID, falling back to the Home bio when that is unset.
+#   The page carries an 18+ confirmation screen (assets/js/age-gate.js).
+#   Set NOTION_ABOUT_DB_ID to turn the page on.
 #
 #   Projects database:
 #     Name (title -- card title on the grid, and the slug source when Slug
@@ -289,6 +292,12 @@ def build_case_structure(blocks, slug)
   { intro: intro, blocks: out }
 end
 
+def paragraphs_html(blocks)
+  blocks.select { |b| b['type'] == 'paragraph' }
+        .map { |b| rich_text_to_html(b.dig('paragraph', 'rich_text')) }
+        .reject { |t| t.strip.empty? }
+end
+
 # Link cards for the /about page. Same Notion columns as the header Links
 # database (Name = label, Link = url); rows missing either are skipped so a
 # half-filled draft row never renders as a dead card.
@@ -320,6 +329,9 @@ PROJECTS_DB_ID = ENV.fetch('NOTION_PROJECTS_DB_ID')
 LINKS_DB_ID = ENV.fetch('NOTION_LINKS_DB_ID')
 # Optional: without it the /about page is simply not generated.
 ABOUT_DB_ID = ENV['NOTION_ABOUT_DB_ID'].to_s.strip
+# Optional: a Notion page whose paragraphs become the /about description.
+# Without it the page falls back to the Home page bio.
+ABOUT_PAGE_ID = ENV['NOTION_ABOUT_PAGE_ID'].to_s.strip
 
 puts '==> Fetching home page (name + bio)'
 home_page = get_page(HOME_PAGE_ID)
@@ -379,11 +391,17 @@ projects = project_rows.map do |row|
 end
 
 about_cards = []
+about_bio = bio_paragraphs
 unless ABOUT_DB_ID.empty?
   puts '==> Fetching about-page link cards'
   about_cards = about_cards_from_rows(
     query_database(ABOUT_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
   )
+
+  unless ABOUT_PAGE_ID.empty?
+    puts '==> Fetching about-page description'
+    about_bio = paragraphs_html(get_block_children(ABOUT_PAGE_ID))
+  end
 end
 
 puts '==> Rendering index.html'
@@ -417,7 +435,7 @@ end
 unless ABOUT_DB_ID.empty?
   about_html = render('about.html.erb', {
                         name: site_name,
-                        bio_paragraphs: bio_paragraphs,
+                        bio_paragraphs: about_bio,
                         cards: about_cards
                       })
   File.write(File.join(ROOT, 'about.html'), about_html)
