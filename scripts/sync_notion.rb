@@ -304,8 +304,6 @@ def paragraphs_html(blocks)
 end
 
 HEX_COLOR = /\A#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\z/.freeze
-# Keep in sync with --accent in assets/css/style.css.
-ACCENT_HEX = '#000fff'.freeze
 
 # Parses the Notion "Color" cell: one HEX ("#ff6600", "f60") or several
 # separated by ";" ("#ff6600; #0033ff" = left-to-right gradient). Returns
@@ -322,52 +320,15 @@ def parse_pill_colors(text)
   end
 end
 
-def hex_rgb(hex)
-  hex.delete_prefix('#').scan(/../).map { |h| h.to_i(16) }
-end
-
-# WCAG relative luminance of an [r, g, b] triple (0-255 each).
-def relative_luminance(rgb)
-  r, g, b = rgb.map do |v|
-    c = v / 255.0
-    c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055)**2.4
-  end
-  0.2126 * r + 0.7152 * g + 0.0722 * b
-end
-
-def contrast_ratio(lum_a, lum_b)
-  hi, lo = [lum_a, lum_b].max, [lum_a, lum_b].min
-  (hi + 0.05) / (lo + 0.05)
-end
-
-# Luminance of the fill at points along a left-to-right gradient through the
-# given stops (CSS blends in sRGB, so the sampling does too).
-def fill_luminances(colors, steps = 10)
-  rgbs = colors.map { |c| hex_rgb(c) }
-  return [relative_luminance(rgbs.first)] if rgbs.length == 1
-
-  rgbs.each_cons(2).flat_map do |from, to|
-    (0..steps).map do |i|
-      t = i / steps.to_f
-      relative_luminance(from.zip(to).map { |a, b| (a + (b - a) * t).round })
-    end
-  end
-end
-
 # Inline custom properties for one card, or nil when it keeps the default look
 # (gray fill, black label). The label color is the editor's choice (the White
-# checkbox in Notion), never guessed from the fill. With a fill, the hover
-# label color is added too: accent blue only where blue is still legible on
-# that fill, otherwise the same label color.
+# checkbox in Notion), never guessed from the fill.
 def pill_style(colors, white)
   fg = white ? '#ffffff' : '#000000'
   return (white ? "--pill-fg: #{fg}" : nil) if colors.nil?
 
-  accent_lum = relative_luminance(hex_rgb(ACCENT_HEX))
-  accent_ok = fill_luminances(colors).map { |l| contrast_ratio(l, accent_lum) }.min >= 4.5
   bg = colors.length == 1 ? colors.first : "linear-gradient(to right, #{colors.join(', ')})"
-
-  "--pill-bg: #{bg}; --pill-fg: #{fg}; --pill-hover-fg: #{accent_ok ? 'var(--accent)' : fg}"
+  "--pill-bg: #{bg}; --pill-fg: #{fg}"
 end
 
 # Link cards for the /about page. Same Notion columns as the header Links

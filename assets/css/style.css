@@ -186,9 +186,9 @@ img {
 
 /* ---- about page: link cards ---- */
 
-/* Per-card colors come from the Notion "Color" column as custom properties set
-   inline by the sync script (--pill-bg, --pill-fg, --pill-hover-fg); a custom
-   property doesn't compete with the hover rule the way an inline `color` would. */
+/* Per-card colors come from the Notion "Color" and "White" columns as custom
+   properties set inline by the sync script (--pill-bg, --pill-fg). Hover only
+   adds the accent outline; the label color never changes. */
 
 .about-hero .bio {
   margin-top: 16px;
@@ -218,20 +218,19 @@ img {
   text-decoration: none;
   outline: 2px solid transparent;
   outline-offset: 0;
-  transition: outline-color var(--card-transition), color var(--card-transition);
+  transition: outline-color var(--card-transition);
 }
 
 /* .reveal declares its own transition list, which would otherwise replace the
-   hover transitions above. */
+   hover transition above. */
 .about-link.reveal {
   transition: opacity 600ms ease, transform 600ms ease,
-    outline-color var(--card-transition), color var(--card-transition);
+    outline-color var(--card-transition);
 }
 
 .about-link:hover,
 .about-link:focus-visible {
   outline-color: var(--accent);
-  color: var(--pill-hover-fg, var(--accent));
 }
 
 /* ---- age gate (about page only; markup lives in templates/about.html.erb) ---- */

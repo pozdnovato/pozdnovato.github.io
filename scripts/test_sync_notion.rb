@@ -213,12 +213,19 @@ check('pill_style: without a fill, only a ticked White changes anything', failur
   pill_style(nil, false).nil? && pill_style(nil, true) == '--pill-fg: #ffffff'
 end
 
-check('pill_style: hover label turns accent blue only where it stays legible, else keeps the chosen color', failures) do
-  pill_style(['#ffd400'], false).include?('--pill-hover-fg: var(--accent)') &&
-    pill_style(['#ffd400'], true).include?('--pill-hover-fg: var(--accent)') &&
-    pill_style(['#000000'], true).include?('--pill-hover-fg: #ffffff') &&
-    pill_style(['#0a2a8a'], true).include?('--pill-hover-fg: #ffffff') &&
-    pill_style(['#0a2a8a'], false).include?('--pill-hover-fg: #000000')
+check('pill_style: nothing about hover is emitted (hover only adds the outline, in CSS)', failures) do
+  [pill_style(['#ffd400'], false), pill_style(['#0a2a8a'], true),
+   pill_style(['#ff0000', '#0000ff'], true), pill_style(nil, true)].none? { |s| s.include?('hover') } &&
+    pill_style(['#ffd400'], false) == '--pill-bg: #ffd400; --pill-fg: #000000'
+end
+
+check('the stylesheet never changes the label color on hover for the about buttons', failures) do
+  css = File.read(File.join(ROOT, 'assets/css/style.css'))
+  hover_rule = css[/\.about-link:hover,\s*\.about-link:focus-visible\s*\{[^}]*\}/]
+  # `outline-color` is fine; a bare `color:` declaration is what must not be there
+  !hover_rule.nil? &&
+    hover_rule.include?('outline-color: var(--accent)') &&
+    hover_rule.scan(/(?<![-\w])color:/).empty?
 end
 
 check('about_cards_from_rows: Color paints, White ticks the label white, both are independent', failures) do
@@ -257,7 +264,7 @@ check('about.html.erb writes a card style only when one is given, and scopes the
                            { label: 'Tinted', url: 'https://b.example/', mailto: false, style: pill_style(['#ffd400'], false) }]
                  })
   html.scan(' style="').length == 1 &&
-    html.include?('style="--pill-bg: #ffd400; --pill-fg: #000000;') &&
+    html.include?('style="--pill-bg: #ffd400; --pill-fg: #000000"') &&
     html.include?('<header class="hero about-hero">')
 end
 
