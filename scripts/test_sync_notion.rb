@@ -416,6 +416,13 @@ check('paragraphs_html keeps only non-empty paragraphs, with inline formatting',
   paragraphs_html(blocks) == ['First <strong>bold</strong>', 'Second']
 end
 
+check('the age check is gone for good: no script file and no styles left behind', failures) do
+  css = File.read(File.join(ROOT, 'assets/css/style.css'))
+  !File.exist?(File.join(ROOT, 'assets/js/age-gate.js')) &&
+    !css.include?('age-gate') && !css.include?('age-ok') &&
+    Dir.glob(File.join(ROOT, 'templates', '*')).none? { |t| File.read(t).include?('age-gate') }
+end
+
 check('the home page opens straight away: no age check markup, class or script', failures) do
   html = render('home.html.erb', { heading: 'T', bio_paragraphs: ['d'], cards: [] })
   html.include?('<html lang="en">') &&
