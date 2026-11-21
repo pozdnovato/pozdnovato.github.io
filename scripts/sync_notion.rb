@@ -5,8 +5,8 @@
 #   NOTION_ABOUT_DB_ID=... [NOTION_ABOUT_PAGE_ID=...] ruby scripts/sync_notion.rb
 #
 # The HOME PAGE of the site (index.html) is a Linktree-style list of link
-# buttons behind an 18+ confirmation screen (assets/js/age-gate.js). The project
-# case pages are still generated but are no longer linked from the home page.
+# buttons. The project case pages are still generated but are no longer linked
+# from the home page.
 # /about only redirects to the home page, so old shared links keep working.
 #
 # Notion schema this script expects:

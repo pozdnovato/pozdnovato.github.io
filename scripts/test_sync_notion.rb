@@ -416,13 +416,11 @@ check('paragraphs_html keeps only non-empty paragraphs, with inline formatting',
   paragraphs_html(blocks) == ['First <strong>bold</strong>', 'Second']
 end
 
-check('about page carries the 18+ gate wired to its script', failures) do
+check('the home page opens straight away: no age check markup, class or script', failures) do
   html = render('home.html.erb', { heading: 'T', bio_paragraphs: ['d'], cards: [] })
-  html.include?('class="has-age-gate"') &&
-    html.include?('src="/assets/js/age-gate.js?v=') &&
-    html.include?('id="age-gate"') &&
-    html.include?('data-age-yes') && html.include?('data-age-no') &&
-    html.include?('data-age-denied hidden')
+  html.include?('<html lang="en">') &&
+    %w[age-gate has-age-gate data-age Are\ you\ 18].none? { |marker| html.include?(marker) } &&
+    !html.include?('<button') && !html.include?('role="dialog"')
 end
 
 check('about page shows the Notion heading as <h1> and tab title, with no avatar', failures) do
@@ -432,10 +430,9 @@ check('about page shows the Notion heading as <h1> and tab title, with no avatar
     !html.include?('avatar')
 end
 
-check('about page loads CSS and JS through content-versioned URLs', failures) do
+check('the home page loads CSS and JS through content-versioned URLs', failures) do
   html = render('home.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
   html =~ %r{href="/assets/css/style\.css\?v=[0-9a-f]{8}"} &&
-    html =~ %r{src="/assets/js/age-gate\.js\?v=[0-9a-f]{8}"} &&
     html =~ %r{src="/assets/js/main\.js\?v=[0-9a-f]{8}"}
 end
 
