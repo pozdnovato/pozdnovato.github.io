@@ -396,6 +396,18 @@ check('redirect_html sends /about visitors to the home page three ways', failure
     html.include?('<a href="/">')
 end
 
+check('only the home page gets the tighter top spacing; project pages keep the shared one', failures) do
+  css = File.read(File.join(ROOT, 'assets/css/style.css'))
+  home = render('home.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
+  project = render('project.html.erb', { title: 'T', description: '', intro_paragraphs: [], blocks: [], other_projects: [] })
+  base = css[/^\.page\s*\{[^}]*\}/]
+  override = css[/\.page\.page--links\s*\{[^}]*\}/]
+  home.include?('class="page page--links"') && !project.include?('page--links') &&
+    !base.nil? && base.include?('padding: 120px;') &&              # shared rule untouched
+    !override.nil? && override.include?('padding-top:') &&          # only the top is overridden...
+    !override.include?('padding-bottom') && !override.include?('padding:') # ...never sides or bottom
+end
+
 check('the buttons stack vertically at full width (one under another, 1.5rem apart)', failures) do
   css = File.read(File.join(ROOT, 'assets/css/style.css'))
   list_rule = css[/\.about-links\s*\{[^}]*\}/]

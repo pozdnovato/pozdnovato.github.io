@@ -194,6 +194,19 @@ img {
   margin-top: 16px;
 }
 
+/* Top of the home page: the heading's capital letters sit as far below the top
+   of the page as the description's last baseline sits above the first button
+   (about 54px). The heading is smaller on phones, hence the second value. */
+.page.page--links {
+  padding-top: 2.58rem;
+}
+
+@media (max-width: 640px) {
+  .page.page--links {
+    padding-top: 2.8rem;
+  }
+}
+
 .about-links {
   margin-top: 48px;
   display: flex;
