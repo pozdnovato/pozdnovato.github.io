@@ -44,7 +44,7 @@
 
   <nav class="about-links">
 <% cards.each do |card| -%>
-    <a href="<%= html_escape(card[:url]) %>" class="about-link reveal"<% if card[:style] %> style="<%= card[:style] %>"<% end %><% unless card[:mailto] %> target="_blank" rel="noopener"<% end %>><%= html_escape(card[:label]) %></a>
+    <a href="<%= html_escape(card[:url]) %>" class="about-link<%= ' about-link--image' if card[:image] %> reveal"<% if card[:style] %> style="<%= card[:style] %>"<% end %><% unless card[:mailto] %> target="_blank" rel="noopener"<% end %>><% if card[:image] %><img class="about-link-image" src="<%= html_escape(card[:image]) %>" alt="" loading="lazy" decoding="async"/><span class="about-link-label"><%= html_escape(card[:label]) %></span><% else %><%= html_escape(card[:label]) %><% end %></a>
 <% end -%>
   </nav>
 

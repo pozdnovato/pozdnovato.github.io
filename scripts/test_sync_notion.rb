@@ -108,20 +108,9 @@ end
 
 # ---- template rendering (smoke test: no exceptions, key strings present) ---
 
-check('index.html.erb renders without error and includes name/links/projects', failures) do
-  html = render('index.html.erb', {
-                   name: 'Test Person',
-                   bio_paragraphs: ['Bio line one.'],
-                   links: [{ label: 'Email', url: 'mailto:x@example.com', mailto: true },
-                           { label: 'LinkedIn', url: 'https://linkedin.com/x', mailto: false }],
-                   projects: [{ slug: 'proj-a', title: 'Project A', meta: 'Client A', thumb: '/assets/images/a.webp' }]
-                 })
-  html.include?('Test Person') &&
-    html.include?('Bio line one.') &&
-    html.include?('mailto:x@example.com') &&
-    html.include?('target="_blank" rel="noopener"') && # on LinkedIn, not on mailto
-    html.include?('/proj-a.html') &&
-    html.include?('Project A')
+check('the old home page template is gone (index.html is generated from home.html.erb)', failures) do
+  !File.exist?(File.join(ROOT, 'templates', 'index.html.erb')) &&
+    File.exist?(File.join(ROOT, 'templates', 'home.html.erb'))
 end
 
 check('project.html.erb renders full structure and more-projects list', failures) do
@@ -257,8 +246,8 @@ check('an invalid Color is reported on stderr instead of failing', failures) do
   err.include?('ignoring invalid Color') && err.include?('Broken')
 end
 
-check('about.html.erb writes a card style only when one is given, and scopes the hero spacing', failures) do
-  html = render('about.html.erb', {
+check('home.html.erb writes a card style only when one is given, and scopes the hero spacing', failures) do
+  html = render('home.html.erb', {
                    heading: 'T', bio_paragraphs: ['d'],
                    cards: [{ label: 'Plain', url: 'https://a.example/', mailto: false, style: nil },
                            { label: 'Tinted', url: 'https://b.example/', mailto: false, style: pill_style(['#ffd400'], false) }]
@@ -266,10 +255,6 @@ check('about.html.erb writes a card style only when one is given, and scopes the
   html.scan(' style="').length == 1 &&
     html.include?('style="--pill-bg: #ffd400; --pill-fg: #000000"') &&
     html.include?('<header class="hero about-hero">')
-end
-
-check('the home page header keeps its own spacing class (about-hero is not on index)', failures) do
-  !render('index.html.erb', { name: 'T', bio_paragraphs: [], links: [], projects: [] }).include?('about-hero')
 end
 
 cards = about_cards_from_rows([
@@ -287,8 +272,8 @@ check('about cards flag mailto links so they skip target=_blank', failures) do
   cards.map { |c| c[:mailto] } == [false, true]
 end
 
-check('about.html.erb renders cards, escapes text, and has no home-page links', failures) do
-  html = render('about.html.erb', {
+check('home.html.erb renders cards, escapes text, and has no home-page links', failures) do
+  html = render('home.html.erb', {
                    heading: 'Test Person',
                    bio_paragraphs: ['Bio line.'],
                    cards: [{ label: 'Q&A <live>', url: 'https://x.com/?a=1&b=2', mailto: false },
@@ -302,9 +287,84 @@ check('about.html.erb renders cards, escapes text, and has no home-page links', 
     !html.include?('project-card')
 end
 
-check('index template output is unchanged by the about feature (no link to /about, no age gate)', failures) do
-  html = render('index.html.erb', { name: 'T', bio_paragraphs: [], links: [], projects: [] })
-  !html.include?('about') && !html.include?('age-gate')
+check('home page has no project grid and no header link row (the old home is gone)', failures) do
+  html = render('home.html.erb', { heading: 'T', bio_paragraphs: ['d'], cards: [] })
+  %w[project-grid project-card links-row avatar].none? { |marker| html.include?(marker) }
+end
+
+# ---- image buttons ------------------------------------------------------------
+
+def about_row_with_image(name, link, image_url, id)
+  row = about_row(name, link)
+  row['id'] = id
+  row['properties']['Image'] = {
+    'type' => 'files',
+    'files' => [{ 'type' => 'file', 'name' => 'banner.webp', 'file' => { 'url' => image_url } }]
+  }
+  row
+end
+
+check('a row with an Image gets a downloaded file keyed on the tail of its row id', failures) do
+  rows = [about_row_with_image('Shop', 'https://shop.example/', 'https://files.example/a.webp?sig=1',
+                               '3e19de8a-b2a8-80b6-ac6f-cdc01e57f280')]
+  card = about_cards_from_rows(rows).first
+  # the stubbed download_image above returns "/assets/images/notion-<key>.webp"
+  card[:image] == '/assets/images/notion-link-cdc01e57f280.webp'
+end
+
+check('a row without an Image has no image, even when a Color is set', failures) do
+  about_cards_from_rows([about_row('Plain', 'https://p.example/', '#ff6600')]).first[:image].nil?
+end
+
+check('different rows never share an image file name', failures) do
+  rows = [
+    about_row_with_image('One', 'https://1.example/', 'https://f.example/1.webp', '3e19de8a-b2a8-80b6-ac6f-cdc01e57f280'),
+    about_row_with_image('Two', 'https://2.example/', 'https://f.example/2.webp', '3e19de8a-b2a8-8017-a606-d3779930d174')
+  ]
+  images = about_cards_from_rows(rows).map { |c| c[:image] }
+  images.uniq.length == 2
+end
+
+check('an image button nests the image and a centered label; plain buttons stay a bare label', failures) do
+  html = render('home.html.erb', {
+                   heading: 'T', bio_paragraphs: [],
+                   cards: [{ label: 'With <image>', url: 'https://a.example/', mailto: false, style: nil,
+                             image: '/assets/images/notion-link-x.webp' },
+                           { label: 'Plain', url: 'https://b.example/', mailto: false, style: nil, image: nil }]
+                 })
+  html.include?('class="about-link about-link--image reveal"') &&
+    html.include?('<img class="about-link-image" src="/assets/images/notion-link-x.webp" alt="" loading="lazy" decoding="async"/>') &&
+    html.include?('<span class="about-link-label">With &lt;image&gt;</span>') &&
+    html.include?('class="about-link reveal"') &&
+    html.include?('>Plain</a>') &&
+    html.scan('<img').length == 1
+end
+
+check('the colors of an image button still apply (they show through transparent images)', failures) do
+  html = render('home.html.erb', {
+                   heading: 'T', bio_paragraphs: [],
+                   cards: [{ label: 'Tinted', url: 'https://a.example/', mailto: false,
+                             style: pill_style(['#ffd400'], true), image: '/assets/images/x.webp' }]
+                 })
+  html.include?('style="--pill-bg: #ffd400; --pill-fg: #ffffff"') && html.include?('about-link--image')
+end
+
+check('redirect_html sends /about visitors to the home page three ways', failures) do
+  html = redirect_html('/')
+  html.include?('http-equiv="refresh" content="0; url=/"') &&
+    html.include?('<link rel="canonical" href="/"/>') &&
+    html.include?('location.replace("/")') &&
+    html.include?('<a href="/">')
+end
+
+check('the buttons stack vertically at full width (one under another, 1.5rem apart)', failures) do
+  css = File.read(File.join(ROOT, 'assets/css/style.css'))
+  list_rule = css[/\.about-links\s*\{[^}]*\}/]
+  button_rule = css[/\.about-link\s*\{[^}]*\}/]
+  !list_rule.nil? && list_rule.include?('flex-direction: column') && list_rule.include?('gap: 1.5rem') &&
+    !list_rule.include?('flex-wrap') &&
+    button_rule.include?('height: 5rem') && button_rule.include?('padding: 0 1.5rem') &&
+    !button_rule.include?('max-width')
 end
 
 check('paragraphs_html keeps only non-empty paragraphs, with inline formatting', failures) do
@@ -318,7 +378,7 @@ check('paragraphs_html keeps only non-empty paragraphs, with inline formatting',
 end
 
 check('about page carries the 18+ gate wired to its script', failures) do
-  html = render('about.html.erb', { heading: 'T', bio_paragraphs: ['d'], cards: [] })
+  html = render('home.html.erb', { heading: 'T', bio_paragraphs: ['d'], cards: [] })
   html.include?('class="has-age-gate"') &&
     html.include?('src="/assets/js/age-gate.js?v=') &&
     html.include?('id="age-gate"') &&
@@ -327,14 +387,14 @@ check('about page carries the 18+ gate wired to its script', failures) do
 end
 
 check('about page shows the Notion heading as <h1> and tab title, with no avatar', failures) do
-  html = render('about.html.erb', { heading: 'All my <links>', bio_paragraphs: [], cards: [] })
+  html = render('home.html.erb', { heading: 'All my <links>', bio_paragraphs: [], cards: [] })
   html.include?('<title>All my &lt;links&gt;</title>') &&
     html.include?('<h1 class="name">All my &lt;links&gt;</h1>') &&
     !html.include?('avatar')
 end
 
 check('about page loads CSS and JS through content-versioned URLs', failures) do
-  html = render('about.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
+  html = render('home.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
   html =~ %r{href="/assets/css/style\.css\?v=[0-9a-f]{8}"} &&
     html =~ %r{src="/assets/js/age-gate\.js\?v=[0-9a-f]{8}"} &&
     html =~ %r{src="/assets/js/main\.js\?v=[0-9a-f]{8}"}
@@ -352,7 +412,7 @@ check('asset_url changes when the file content changes', failures) do
 end
 
 check('about page omits the description block when there is no description', failures) do
-  html = render('about.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
+  html = render('home.html.erb', { heading: 'T', bio_paragraphs: [], cards: [] })
   !html.include?('class="bio')
 end
 

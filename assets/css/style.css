@@ -184,7 +184,7 @@ img {
   color: var(--accent);
 }
 
-/* ---- about page: link cards ---- */
+/* ---- home page: link cards (class names predate it becoming the home page) ---- */
 
 /* Per-card colors come from the Notion "Color" and "White" columns as custom
    properties set inline by the sync script (--pill-bg, --pill-fg). Hover only
@@ -197,17 +197,16 @@ img {
 .about-links {
   margin-top: 48px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .about-link {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 100%;
   height: 5rem;
-  padding: 0 3.28rem;
+  padding: 0 1.5rem;
   background: var(--pill-bg, #EEEEEE);
   border-radius: var(--radius);
   color: var(--pill-fg, inherit);
@@ -231,6 +230,32 @@ img {
 .about-link:hover,
 .about-link:focus-visible {
   outline-color: var(--accent);
+}
+
+/* A card with an image from the Notion "Image" column: the image fills the card
+   at its own aspect ratio (so the card grows to fit it, never cropping it), and
+   the label sits centered on top. */
+.about-link--image {
+  position: relative;
+  height: auto;
+  min-height: 5rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.about-link-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.about-link-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.5rem;
 }
 
 /* ---- age gate (about page only; markup lives in templates/about.html.erb) ---- */

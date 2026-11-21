@@ -1,41 +1,41 @@
 #!/usr/bin/env ruby
-# Pulls content from Notion and regenerates the static site (index.html + one
-# HTML file per project) from templates/*.erb. Run with:
-#   NOTION_TOKEN=... NOTION_HOME_PAGE_ID=... NOTION_PROJECTS_DB_ID=... NOTION_LINKS_DB_ID=... ruby scripts/sync_notion.rb
+# Pulls content from Notion and regenerates the static site (index.html, one
+# HTML file per project, and an /about redirect) from templates/*.erb. Run with:
+#   NOTION_TOKEN=... NOTION_HOME_PAGE_ID=... NOTION_PROJECTS_DB_ID=... \
+#   NOTION_ABOUT_DB_ID=... [NOTION_ABOUT_PAGE_ID=...] ruby scripts/sync_notion.rb
+#
+# The HOME PAGE of the site (index.html) is a Linktree-style list of link
+# buttons behind an 18+ confirmation screen (assets/js/age-gate.js). The project
+# case pages are still generated but are no longer linked from the home page.
+# /about only redirects to the home page, so old shared links keep working.
 #
 # Notion schema this script expects:
 #
-#   Home page (a regular page, not a database row):
-#     - page title = site owner's name, shown as <h1 class="name">
-#     - page body  = bio paragraphs, in order (plain paragraph blocks)
+#   Link-buttons database (NOTION_ABOUT_DB_ID -- the name predates it becoming
+#   the home page): Name (title -- the button label), Link (rich text -- not
+#   Notion's native "URL" property type, which can mangle mailto: links),
+#   Order (number), and optionally
+#     Color (rich text: a HEX such as "#ff6600", or HEXes separated by ";" for
+#       a left-to-right gradient; blank = the default gray),
+#     White (checkbox: label is white when ticked, black otherwise; the label
+#       color is never auto-picked),
+#     Image (files & media: the first file fills the button at its own aspect
+#       ratio, turning it into a banner; the label is shown on top of it).
 #
-#   Links database: Name (title -- the link's label, e.g. "LinkedIn"),
-#   Link (rich text -- not Notion's native "URL" property type, which can
-#   mangle mailto: links), Order (number)
+#   Heading + description of the home page: the title and body paragraphs of the
+#   optional page NOTION_ABOUT_PAGE_ID; when it is unset they fall back to the
+#   name and bio of the Home page below. There is no avatar.
 #
-#   About-links database (optional; enables /about, which is intentionally
-#   not linked from the home page): same columns as Links -- Name (title),
-#   Link (rich text), Order (number), and optionally Color (rich text: a HEX
-#   such as "#ff6600", or HEXes separated by ";" for a left-to-right
-#   gradient; blank = the default gray) and White (checkbox: label is white
-#   when ticked, black otherwise; the label color is never auto-picked).
-#   Its heading (<h1> and tab title) is the
-#   title of the optional page NOTION_ABOUT_PAGE_ID and its description is
-#   that page's body paragraphs; when it is unset the page falls back to the
-#   Home name and bio. There is no avatar on this page.
-#   The page carries an 18+ confirmation screen (assets/js/age-gate.js).
-#   Set NOTION_ABOUT_DB_ID to turn the page on.
+#   Home page (NOTION_HOME_PAGE_ID; a regular page, not a database row): only
+#   the fallback source of the heading and description described above.
 #
-#   Projects database:
-#     Name (title -- card title on the grid, and the slug source when Slug
-#     is blank), Meta (rich text -- the small client/context line above the
-#     card title), Title (rich text, optional -- the project page's own
-#     <h1>/<title>; falls back to plain Name when blank, since a mechanical
-#     "Name for a Meta" formula can't get English articles right for every
-#     project), Description (rich text, optional), Thumbnail (files,
-#     optional -> falls back to the first image block on the page), Slug
-#     (rich text, optional -> auto-generated from Name), Order (number),
-#     Published (checkbox)
+#   Projects database (these pages are no longer linked from the home page, so
+#   the grid-only columns Meta and Thumbnail are ignored now):
+#     Name (title -- the slug source when Slug is blank, and the page heading
+#     when Title is blank), Title (rich text, optional -- the project page's
+#     own <h1>/<title>), Description (rich text, optional), Slug (rich text,
+#     optional -> auto-generated from Name), Order (number), Published
+#     (checkbox)
 #     Page body = intro paragraphs, then any mix of Heading (section label:
 #     Task/Process/Result/...), paragraph, and image blocks, in the order
 #     they should render.
@@ -331,12 +331,16 @@ def pill_style(colors, white)
   "--pill-bg: #{bg}; --pill-fg: #{fg}"
 end
 
-# Link cards for the /about page. Same Notion columns as the header Links
-# database (Name = label, Link = url) plus the optional Color (fill) and White
-# (checkbox: white label instead of black); rows missing a label or url are
-# skipped so a half-filled draft row never renders as a dead card.
+# Link buttons of the home page (Name = label, Link = url) plus the optional
+# Color (fill), White (checkbox: white label instead of black) and Image (files:
+# the first file is downloaded and fills the button). Rows missing a label or url
+# are skipped so a half-filled draft row never renders as a dead button.
 def about_cards_from_rows(rows)
-  cards = rows.map do |row|
+  cards = rows.reject do |row|
+    prop_title(row, 'Name').strip.empty? || prop_rich_text(row, 'Link').strip.empty?
+  end
+
+  cards.map do |row|
     url = prop_rich_text(row, 'Link').strip
     label = prop_title(row, 'Name').strip
     color_text = prop_rich_text(row, 'Color')
@@ -345,10 +349,32 @@ def about_cards_from_rows(rows)
       warn "    warning: ignoring invalid Color #{color_text.inspect} on \"#{label}\""
     end
 
-    { label: label, url: url, mailto: url.start_with?('mailto:'),
+    image_url = prop_file_url(row, 'Image')
+    # Keyed on the tail of the row id: the leading characters of Notion ids are
+    # shared across the workspace, and a row keeps its id when reordered.
+    row_key = row['id'].to_s.delete('-')
+    image = image_url && download_image(image_url, "link-#{row_key[-12..] || row_key}")
+
+    { label: label, url: url, mailto: url.start_with?('mailto:'), image: image,
       style: pill_style(colors, prop_checkbox(row, 'White')) }
   end
-  cards.reject { |c| c[:label].empty? || c[:url].empty? }
+end
+
+# Tiny page that sends visitors of a moved URL to its new home.
+def redirect_html(target)
+  <<~HTML
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8"/>
+    <title>Redirecting&hellip;</title>
+    <meta http-equiv="refresh" content="0; url=#{target}"/>
+    <link rel="canonical" href="#{target}"/>
+    <script>location.replace(#{target.to_json});</script>
+    </head>
+    <body><a href="#{target}">Continue</a></body>
+    </html>
+  HTML
 end
 
 # Content-versioned URL for a local asset ("assets/css/style.css" ->
@@ -376,11 +402,11 @@ if __FILE__ == $PROGRAM_NAME
 
 HOME_PAGE_ID = ENV.fetch('NOTION_HOME_PAGE_ID')
 PROJECTS_DB_ID = ENV.fetch('NOTION_PROJECTS_DB_ID')
-LINKS_DB_ID = ENV.fetch('NOTION_LINKS_DB_ID')
-# Optional: without it the /about page is simply not generated.
-ABOUT_DB_ID = ENV['NOTION_ABOUT_DB_ID'].to_s.strip
-# Optional: a Notion page whose paragraphs become the /about description.
-# Without it the page falls back to the Home page bio.
+# The link buttons ARE the home page now, so a missing database fails the sync
+# loudly instead of publishing an empty home page.
+ABOUT_DB_ID = ENV.fetch('NOTION_ABOUT_DB_ID')
+# Optional: a Notion page whose title and paragraphs become the home page's
+# heading and description. Without it they fall back to the Home page's.
 ABOUT_PAGE_ID = ENV['NOTION_ABOUT_PAGE_ID'].to_s.strip
 
 puts '==> Fetching home page (name + bio)'
@@ -391,14 +417,6 @@ bio_paragraphs = home_blocks
                  .select { |b| b['type'] == 'paragraph' }
                  .map { |b| rich_text_to_html(b.dig('paragraph', 'rich_text')) }
                  .reject { |t| t.strip.empty? }
-
-puts '==> Fetching links'
-link_rows = query_database(LINKS_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
-links = link_rows.map do |row|
-  label = prop_title(row, 'Name')
-  url = prop_rich_text(row, 'Link')
-  { label: label, url: url, mailto: url.to_s.start_with?('mailto:') }
-end
 
 puts '==> Fetching projects'
 project_rows = query_database(
@@ -416,55 +434,39 @@ projects = project_rows.map do |row|
   page_blocks = get_block_children(row['id'])
   structure = build_case_structure(page_blocks, slug)
 
-  thumb = prop_file_url(row, 'Thumbnail')
-  thumb_src = if thumb
-                download_image(thumb, "#{slug}-thumb")
-              else
-                first_figure = structure[:blocks].find { |b| b[:type] == :figure }
-                first_figure ? first_figure[:src] : nil
-              end
-
-  meta = prop_rich_text(row, 'Meta')
   full_title = build_full_title(name, prop_rich_text(row, 'Title'))
 
   {
     slug: slug,
     title: name,
     full_title: full_title,
-    meta: meta,
     description: prop_rich_text(row, 'Description'),
     order: prop_number(row, 'Order') || 0,
-    thumb: thumb_src,
     intro: structure[:intro],
     blocks: structure[:blocks]
   }
 end
 
-about_cards = []
-about_bio = bio_paragraphs
-about_heading = site_name
-unless ABOUT_DB_ID.empty?
-  puts '==> Fetching about-page link cards'
-  about_cards = about_cards_from_rows(
-    query_database(ABOUT_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
-  )
+puts '==> Fetching link buttons'
+home_cards = about_cards_from_rows(
+  query_database(ABOUT_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
+)
 
-  unless ABOUT_PAGE_ID.empty?
-    puts '==> Fetching about-page heading + description'
-    notion_heading = page_title_text(get_page(ABOUT_PAGE_ID)).strip
-    about_heading = notion_heading unless notion_heading.empty?
-    about_bio = paragraphs_html(get_block_children(ABOUT_PAGE_ID))
-  end
+home_heading = site_name
+home_bio = bio_paragraphs
+unless ABOUT_PAGE_ID.empty?
+  puts '==> Fetching home heading + description'
+  notion_heading = page_title_text(get_page(ABOUT_PAGE_ID)).strip
+  home_heading = notion_heading unless notion_heading.empty?
+  home_bio = paragraphs_html(get_block_children(ABOUT_PAGE_ID))
 end
 
 puts '==> Rendering index.html'
-index_html = render('index.html.erb', {
-                       name: site_name,
-                       bio_paragraphs: bio_paragraphs,
-                       links: links,
-                       projects: projects.map { |p| { slug: p[:slug], title: p[:title], meta: p[:meta], thumb: p[:thumb] } }
-                     })
-File.write(File.join(ROOT, 'index.html'), index_html)
+File.write(File.join(ROOT, 'index.html'), render('home.html.erb', {
+                                                    heading: home_heading,
+                                                    bio_paragraphs: home_bio,
+                                                    cards: home_cards
+                                                  }))
 
 generated_files = ['index.html']
 
@@ -485,16 +487,9 @@ projects.each do |proj|
   puts "    wrote #{filename}"
 end
 
-unless ABOUT_DB_ID.empty?
-  about_html = render('about.html.erb', {
-                        heading: about_heading,
-                        bio_paragraphs: about_bio,
-                        cards: about_cards
-                      })
-  File.write(File.join(ROOT, 'about.html'), about_html)
-  generated_files << 'about.html'
-  puts '    wrote about.html'
-end
+File.write(File.join(ROOT, 'about.html'), redirect_html('/'))
+generated_files << 'about.html'
+puts '    wrote about.html (redirect to /)'
 
 # ---- clean up pages that are no longer published ---------------------------
 
