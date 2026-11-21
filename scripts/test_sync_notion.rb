@@ -294,14 +294,53 @@ end
 
 # ---- image buttons ------------------------------------------------------------
 
-def about_row_with_image(name, link, image_url, id)
+def about_row_with_image(name, link, image_url, id, column: 'файл')
   row = about_row(name, link)
   row['id'] = id
-  row['properties']['Image'] = {
+  row['properties'][column] = {
     'type' => 'files',
     'files' => [{ 'type' => 'file', 'name' => 'banner.webp', 'file' => { 'url' => image_url } }]
   }
   row
+end
+
+check('the image comes from the "файл" column, whatever its case or spacing; Image/File work too', failures) do
+  id = '3e19de8a-b2a8-80b6-ac6f-cdc01e57f280'
+  ['файл', 'Файл', 'ФАЙЛ', ' файл ', 'Image', 'image', 'File'].all? do |column|
+    !row_image_url(about_row_with_image('A', 'https://a.example/', 'https://f.example/x.webp', id, column: column)).nil?
+  end
+end
+
+check('other files columns and non-files columns named like the image column are ignored', failures) do
+  id = '3e19de8a-b2a8-80b6-ac6f-cdc01e57f280'
+  other = about_row_with_image('A', 'https://a.example/', 'https://f.example/x.webp', id, column: 'Attachment')
+  wrong_type = about_row('B', 'https://b.example/')
+  wrong_type['properties']['файл'] = { 'type' => 'rich_text', 'rich_text' => [{ 'plain_text' => 'not a file' }] }
+  row_image_url(other).nil? && row_image_url(wrong_type).nil? &&
+    row_image_url(about_row('C', 'https://c.example/')).nil?
+end
+
+check('an external (pasted-link) image in the column is picked up as well', failures) do
+  row = about_row('A', 'https://a.example/')
+  row['properties']['файл'] = { 'type' => 'files',
+                                'files' => [{ 'type' => 'external', 'name' => 'x', 'external' => { 'url' => 'https://img.example/x.png' } }] }
+  row_image_url(row) == 'https://img.example/x.png'
+end
+
+check('the image button is a 4:3 picture set into the button with a 0.5rem inset, label below', failures) do
+  css = File.read(File.join(ROOT, 'assets/css/style.css'))
+  button = css[/\.about-link--image\s*\{[^}]*\}/]
+  image = css[/\.about-link-image\s*\{[^}]*\}/]
+  label = css[/\.about-link-label\s*\{[^}]*\}/]
+  !button.nil? && !image.nil? && !label.nil? &&
+    button.include?('flex-direction: column') && button.include?('padding: 0.5rem 0.5rem 0') &&
+    button.include?('height: auto') &&
+    image.include?('aspect-ratio: 4 / 3') && image.include?('object-fit: cover') &&
+    image.include?('border-radius: 0.5rem') && image.include?('width: 100%') &&
+    # the label row mirrors a plain button's content (5rem, centered) so the
+    # label keeps the same distances; and nothing is overlaid on the image
+    label.include?('min-height: 5rem') && label.include?('align-items: center') &&
+    !css[/\.about-link-label\s*\{[^}]*\}/].include?('position: absolute')
 end
 
 check('a row with an Image gets a downloaded file keyed on the tail of its row id', failures) do

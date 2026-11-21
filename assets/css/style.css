@@ -232,30 +232,34 @@ img {
   outline-color: var(--accent);
 }
 
-/* A card with an image from the Notion "Image" column: the image fills the card
-   at its own aspect ratio (so the card grows to fit it, never cropping it), and
-   the label sits centered on top. */
+/* A button with an image from the Notion file column: the image is set into the
+   button, 0.5rem from the top and both sides, always 4:3 landscape (cropped to
+   fit) with 0.5rem corners (the button's 1rem corners minus that inset). Under
+   it sits a label row laid out exactly like a plain button's content: 5rem tall,
+   label centered, so the label keeps the same distance from the image that a
+   plain button's label has from its top edge, and from the bottom edge. */
 .about-link--image {
-  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   height: auto;
-  min-height: 5rem;
-  padding: 0;
-  overflow: hidden;
+  padding: 0.5rem 0.5rem 0;
 }
 
 .about-link-image {
   display: block;
   width: 100%;
-  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 0.5rem;
 }
 
 .about-link-label {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 1.5rem;
+  min-height: 5rem;
+  padding: 0 1rem;
 }
 
 /* ---- age gate (about page only; markup lives in templates/about.html.erb) ---- */

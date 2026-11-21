@@ -19,8 +19,8 @@
 #       a left-to-right gradient; blank = the default gray),
 #     White (checkbox: label is white when ticked, black otherwise; the label
 #       color is never auto-picked),
-#     Image (files & media: the first file fills the button at its own aspect
-#       ratio, turning it into a banner; the label is shown on top of it).
+#     "файл" (files & media; "Image"/"File" work too): the first file is set into
+#       the button as a 4:3 picture with a 0.5rem inset, the label below it.
 #
 #   Heading + description of the home page: the title and body paragraphs of the
 #   optional page NOTION_ABOUT_PAGE_ID; when it is unset they fall back to the
@@ -331,10 +331,24 @@ def pill_style(colors, white)
   "--pill-bg: #{bg}; --pill-fg: #{fg}"
 end
 
+IMAGE_COLUMN_NAMES = %w[файл image file].freeze
+
+# URL of the first file in a row's image column: a files-type property whose name
+# is "файл", "image" or "file", ignoring case and surrounding spaces ("Файл" works
+# too). Other files columns are left alone.
+def row_image_url(row)
+  props = row['properties'] || {}
+  key = props.keys.find do |k|
+    IMAGE_COLUMN_NAMES.include?(k.strip.downcase) && props[k]['type'] == 'files'
+  end
+  key && prop_file_url(row, key)
+end
+
 # Link buttons of the home page (Name = label, Link = url) plus the optional
-# Color (fill), White (checkbox: white label instead of black) and Image (files:
-# the first file is downloaded and fills the button). Rows missing a label or url
-# are skipped so a half-filled draft row never renders as a dead button.
+# Color (fill), White (checkbox: white label instead of black) and the image
+# column (files: the first file is downloaded and set into the button). Rows
+# missing a label or url are skipped so a half-filled draft row never renders as
+# a dead button.
 def about_cards_from_rows(rows)
   cards = rows.reject do |row|
     prop_title(row, 'Name').strip.empty? || prop_rich_text(row, 'Link').strip.empty?
@@ -349,7 +363,7 @@ def about_cards_from_rows(rows)
       warn "    warning: ignoring invalid Color #{color_text.inspect} on \"#{label}\""
     end
 
-    image_url = prop_file_url(row, 'Image')
+    image_url = row_image_url(row)
     # Keyed on the tail of the row id: the leading characters of Notion ids are
     # shared across the workspace, and a row keeps its id when reordered.
     row_key = row['id'].to_s.delete('-')
@@ -451,6 +465,7 @@ puts '==> Fetching link buttons'
 home_cards = about_cards_from_rows(
   query_database(ABOUT_DB_ID, sorts: [{ property: 'Order', direction: 'ascending' }])
 )
+puts "    #{home_cards.length} buttons, #{home_cards.count { |c| c[:image] }} with an image"
 
 home_heading = site_name
 home_bio = bio_paragraphs
